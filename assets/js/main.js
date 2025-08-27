@@ -250,133 +250,156 @@
   // ================================== //
   //  SNAKE GAME LOGIC                  //
   // ================================== //
-  (function setupSnakeGame() {
-    const modal = document.getElementById('gameModal');
-    const closeBtn = document.getElementById('closeGameBtn');
-    const canvas = document.getElementById('gameCanvas');
-    const gameHintBtn = document.getElementById('gameHintBtn'); // Get the new button
-    if (!modal || !canvas || !closeBtn || !gameHintBtn) return;
+ // ================================== //
+//  SNAKE GAME LOGIC - FINAL VERSION  //
+// ================================== //
+(function setupSnakeGame() {
+  const modal = document.getElementById('gameModal');
+  const closeBtn = document.getElementById('closeGameBtn');
+  const canvas = document.getElementById('gameCanvas');
+  const gameHintBtn = document.getElementById('gameHintBtn');
   
-    const ctx = canvas.getContext('2d');
-    const gridSize = 20;
-    let snake, food, score, direction, gameInterval;
+  // Get the new control buttons
+  const upBtn = document.getElementById('upBtn');
+  const downBtn = document.getElementById('downBtn');
+  const leftBtn = document.getElementById('leftBtn');
+  const rightBtn = document.getElementById('rightBtn');
+
+  if (!modal || !canvas || !closeBtn || !gameHintBtn || !upBtn) return;
+
+  const ctx = canvas.getContext('2d');
+  const gridSize = 20;
+  let snake, food, score, direction, gameInterval;
+  
+  const snakeColor = '#6366f1';
+  const foodColor = '#818cf8';
+
+  function initGame() {
+    snake = [{ x: 10, y: 10 }];
+    food = {};
+    score = 0;
+    direction = 'right';
+    placeFood();
+    if (gameInterval) clearInterval(gameInterval);
+    gameInterval = setInterval(gameLoop, 120);
+  }
+
+  function placeFood() {
+    food.x = Math.floor(Math.random() * (canvas.width / gridSize));
+    food.y = Math.floor(Math.random() * (canvas.height / gridSize));
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    snake.forEach(segment => {
+      ctx.fillStyle = snakeColor;
+      ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 1, gridSize - 1);
+    });
+    ctx.fillStyle = foodColor;
+    ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 1, gridSize - 1);
+    ctx.fillStyle = 'white';
+    ctx.font = '16px Inter, sans-serif';
+    ctx.fillText(`Score: ${score}`, 10, 20);
+  }
+
+  function update() {
+    const head = { ...snake[0] };
+    if (direction === 'up') head.y--;
+    if (direction === 'down') head.y++;
+    if (direction === 'left') head.x--;
+    if (direction === 'right') head.x++;
     
-    const snakeColor = '#6366f1';
-    const foodColor = '#818cf8';
-  
-    function initGame() {
-      snake = [{ x: 10, y: 10 }];
-      food = {};
-      score = 0;
-      direction = 'right';
+    if (head.x < 0) head.x = (canvas.width / gridSize) - 1;
+    if (head.x * gridSize >= canvas.width) head.x = 0;
+    if (head.y < 0) head.y = (canvas.height / gridSize) - 1;
+    if (head.y * gridSize >= canvas.height) head.y = 0;
+
+    snake.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+      score++;
       placeFood();
-      if (gameInterval) clearInterval(gameInterval);
-      gameInterval = setInterval(gameLoop, 120); // Slightly faster for more fun
+    } else {
+      snake.pop();
     }
-  
-    function placeFood() {
-      food.x = Math.floor(Math.random() * (canvas.width / gridSize));
-      food.y = Math.floor(Math.random() * (canvas.height / gridSize));
-    }
-  
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      snake.forEach(segment => {
-        ctx.fillStyle = snakeColor;
-        ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 1, gridSize - 1); // Added gap
-      });
-      ctx.fillStyle = foodColor;
-      ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 1, gridSize - 1); // Added gap
-      ctx.fillStyle = 'white';
-      ctx.font = '16px Inter, sans-serif';
-      ctx.fillText(`Score: ${score}`, 10, 20);
-    }
-  
-    function update() {
-      const head = { ...snake[0] };
-      if (direction === 'up') head.y--;
-      if (direction === 'down') head.y++;
-      if (direction === 'left') head.x--;
-      if (direction === 'right') head.x++;
-      
-      // --- NEW: WRAP AROUND (NO WALLS) LOGIC ---
-      if (head.x < 0) head.x = (canvas.width / gridSize) - 1;
-      if (head.x * gridSize >= canvas.width) head.x = 0;
-      if (head.y < 0) head.y = (canvas.height / gridSize) - 1;
-      if (head.y * gridSize >= canvas.height) head.y = 0;
-  
-      snake.unshift(head);
-  
-      if (head.x === food.x && head.y === food.y) {
-        score++;
-        placeFood();
-      } else {
-        snake.pop();
-      }
-  
-      const selfCollision = snake.slice(1).some(segment => segment.x === head.x && segment.y === head.y);
-      
-      if (selfCollision) { // Game over only on self-collision
-        clearInterval(gameInterval);
-        ctx.fillStyle = 'white';
-        ctx.font = '24px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`Game Over! Score: ${score}`, canvas.width / 2, canvas.height / 2);
-        ctx.font = '16px Inter, sans-serif';
-        ctx.fillText('Press "Enter" to restart', canvas.width / 2, canvas.height / 2 + 30);
-      }
-    }
+
+    const selfCollision = snake.slice(1).some(segment => segment.x === head.x && segment.y === head.y);
     
-    function gameLoop() {
-      update();
-      draw();
-    }
-  
-    function changeDirection(e) {
-      const key = e.key;
-      const isGameOver = snake.slice(1).some(segment => segment.x === snake[0].x && segment.y === snake[0].y);
-  
-      if ((key === 'ArrowUp' || key.toLowerCase() === 'w') && direction !== 'down') direction = 'up';
-      if ((key === 'ArrowDown' || key.toLowerCase() === 's') && direction !== 'up') direction = 'down';
-      if ((key === 'ArrowLeft' || key.toLowerCase() === 'a') && direction !== 'right') direction = 'left';
-      if ((key === 'ArrowRight' || key.toLowerCase() === 'd') && direction !== 'left') direction = 'right';
-      if (key === 'Enter' && isGameOver) {
-          initGame();
-      }
-    }
-    
-    const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
-    let konamiIndex = 0;
-    
-    function checkKonamiCode(e) {
-      if (modal.classList.contains('hidden') && e.key.toLowerCase() === konamiCode[konamiIndex].toLowerCase()) {
-        konamiIndex++;
-        if (konamiIndex === konamiCode.length) {
-          konamiIndex = 0;
-          openGame();
-        }
-      } else {
-        konamiIndex = 0;
-      }
-    }
-    
-    function openGame() {
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      initGame();
-      window.addEventListener('keydown', changeDirection);
-    }
-    
-    function closeGame() {
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
+    if (selfCollision) {
       clearInterval(gameInterval);
-      window.removeEventListener('keydown', changeDirection);
+      ctx.fillStyle = 'white';
+      ctx.font = '24px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Game Over! Score: ${score}`, canvas.width / 2, canvas.height / 2);
+      ctx.font = '16px Inter, sans-serif';
+      ctx.fillText('Press "Enter" to restart', canvas.width / 2, canvas.height / 2 + 30);
     }
+  }
   
-    window.addEventListener('keydown', checkKonamiCode);
-    closeBtn.addEventListener('click', closeGame);
-    gameHintBtn.addEventListener('click', openGame); // Add click listener for the button
-  })();
+  function gameLoop() {
+    update();
+    draw();
+  }
+
+  function handleDirectionChange(newDirection) {
+    if (newDirection === 'up' && direction !== 'down') direction = 'up';
+    if (newDirection === 'down' && direction !== 'up') direction = 'down';
+    if (newDirection === 'left' && direction !== 'right') direction = 'left';
+    if (newDirection === 'right' && direction !== 'left') direction = 'right';
+  }
+
+  function handleKeyDown(e) {
+    const key = e.key.toLowerCase();
+    const isGameOver = snake.slice(1).some(segment => segment.x === snake[0].x && segment.y === snake[0].y);
+
+    if (key === 'arrowup' || key === 'w') handleDirectionChange('up');
+    if (key === 'arrowdown' || key === 's') handleDirectionChange('down');
+    if (key === 'arrowleft' || key === 'a') handleDirectionChange('left');
+    if (key === 'arrowright' || key === 'd') handleDirectionChange('right');
+    if (key === 'enter' && isGameOver) {
+        initGame();
+    }
+  }
+  
+  const konamiCode = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
+  let konamiIndex = 0;
+  
+  function checkKonamiCode(e) {
+    if (modal.classList.contains('hidden') && e.key.toLowerCase() === konamiCode[konamiIndex]) {
+      konamiIndex++;
+      if (konamiIndex === konamiCode.length) {
+        konamiIndex = 0;
+        openGame();
+      }
+    } else {
+      konamiIndex = 0;
+    }
+  }
+  
+  function openGame() {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    initGame();
+    window.addEventListener('keydown', handleKeyDown);
+  }
+  
+  function closeGame() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    clearInterval(gameInterval);
+    window.removeEventListener('keydown', handleKeyDown);
+  }
+
+  // Listen for keyboard and button clicks
+  window.addEventListener('keydown', checkKonamiCode);
+  closeBtn.addEventListener('click', closeGame);
+  gameHintBtn.addEventListener('click', openGame);
+  
+  // Add listeners for the new D-pad buttons
+  upBtn.addEventListener('click', () => handleDirectionChange('up'));
+  downBtn.addEventListener('click', () => handleDirectionChange('down'));
+  leftBtn.addEventListener('click', () => handleDirectionChange('left'));
+  rightBtn.addEventListener('click', () => handleDirectionChange('right'));
+})();
 
 })();
