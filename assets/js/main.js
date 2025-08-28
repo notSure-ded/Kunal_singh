@@ -254,152 +254,338 @@
 //  SNAKE GAME LOGIC - FINAL VERSION  //
 // ================================== //
 (function setupSnakeGame() {
-  const modal = document.getElementById('gameModal');
-  const closeBtn = document.getElementById('closeGameBtn');
-  const canvas = document.getElementById('gameCanvas');
-  const gameHintBtn = document.getElementById('gameHintBtn');
-  
-  // Get the new control buttons
-  const upBtn = document.getElementById('upBtn');
-  const downBtn = document.getElementById('downBtn');
-  const leftBtn = document.getElementById('leftBtn');
-  const rightBtn = document.getElementById('rightBtn');
-
-  if (!modal || !canvas || !closeBtn || !gameHintBtn || !upBtn) return;
-
-  const ctx = canvas.getContext('2d');
+  const modal = document.getElementById("gameModal");
+  const closeBtn = document.getElementById("closeGameBtn");
+  const canvas = document.getElementById("gameCanvas");
+  const gameHintBtn = document.getElementById("gameHintBtn");
+  const scoreDisplay = document.getElementById("gameScore");
+  const upBtn = document.getElementById("upBtn");
+  const downBtn = document.getElementById("downBtn");
+  const leftBtn = document.getElementById("leftBtn");
+  const rightBtn = document.getElementById("rightBtn");
+  if (!modal || !canvas) return;
+  const ctx = canvas.getContext("2d");
   const gridSize = 20;
-  let snake, food, score, direction, gameInterval;
-  
-  const snakeColor = '#6366f1';
-  const foodColor = '#818cf8';
-
+  let snake,
+    food,
+    powerUp,
+    score,
+    highScore = 0,
+    direction,
+    gameInterval,
+    speed,
+    particles = [],
+    nextDirection = null;
   function initGame() {
     snake = [{ x: 10, y: 10 }];
     food = {};
+    powerUp = null;
     score = 0;
-    direction = 'right';
+    direction = "right";
+    nextDirection = null;
+    speed = 120;
+    particles = [];
     placeFood();
+    if (Math.random() > 0.7) placePowerUp();
+    updateScore();
     if (gameInterval) clearInterval(gameInterval);
-    gameInterval = setInterval(gameLoop, 120);
+    gameInterval = setInterval(gameLoop, speed);
   }
-
   function placeFood() {
-    food.x = Math.floor(Math.random() * (canvas.width / gridSize));
-    food.y = Math.floor(Math.random() * (canvas.height / gridSize));
+    do {
+      food.x = Math.floor(Math.random() * (canvas.width / gridSize));
+      food.y = Math.floor(Math.random() * (canvas.height / gridSize));
+    } while (snake.some((s) => s.x === food.x && s.y === food.y));
   }
-
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    snake.forEach(segment => {
-      ctx.fillStyle = snakeColor;
-      ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 1, gridSize - 1);
+  function placePowerUp() {
+    powerUp = {
+      x: Math.floor(Math.random() * (canvas.width / gridSize)),
+      y: Math.floor(Math.random() * (canvas.height / gridSize)),
+      type: Math.random() > 0.5 ? "speed" : "bonus",
+    };
+  }
+  function createParticles(x, y, color) {
+    for (let i = 0; i < 8; i++) {
+      particles.push({
+        x: x * gridSize + gridSize / 2,
+        y: y * gridSize + gridSize / 2,
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4,
+        life: 1,
+        color: color,
+      });
+    }
+  }
+  function updateParticles() {
+    particles = particles.filter((p) => p.life > 0);
+    particles.forEach((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.02;
+      p.vx *= 0.98;
+      p.vy *= 0.98;
     });
-    ctx.fillStyle = foodColor;
-    ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 1, gridSize - 1);
-    ctx.fillStyle = 'white';
-    ctx.font = '16px Inter, sans-serif';
-    ctx.fillText(`Score: ${score}`, 10, 20);
   }
-
+  function draw() {
+    // Clear canvas with gradient
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, "#1e293b");
+    gradient.addColorStop(1, "#0f172a");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw grid
+    ctx.strokeStyle = "rgba(100, 116, 139, 0.1)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= canvas.width; i += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, canvas.height);
+      ctx.stroke();
+    }
+    for (let i = 0; i <= canvas.height; i += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(canvas.width, i);
+      ctx.stroke();
+    }
+    // Draw snake with gradient
+    snake.forEach((segment, index) => {
+      const opacity = 1 - (index / snake.length) * 0.3;
+      const hue = (Date.now() / 50 + index * 10) % 360;
+      ctx.fillStyle = `hsla(${hue}, 70%, 60%, ${opacity})`;
+      ctx.fillRect(
+        segment.x * gridSize + 1,
+        segment.y * gridSize + 1,
+        gridSize - 2,
+        gridSize - 2
+      );
+    });
+    // Draw food with animation
+    const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.8;
+    ctx.fillStyle = "#818cf8";
+    ctx.shadowColor = "#818cf8";
+    ctx.shadowBlur = 10 * pulse;
+    const foodSize = gridSize * pulse;
+    const foodOffset = (gridSize - foodSize) / 2;
+    ctx.fillRect(
+      food.x * gridSize + foodOffset,
+      food.y * gridSize + foodOffset,
+      foodSize,
+      foodSize
+    );
+    ctx.shadowBlur = 0;
+    // Draw power-up
+    if (powerUp) {
+      ctx.fillStyle = powerUp.type === "speed" ? "#fbbf24" : "#34d399";
+      ctx.beginPath();
+      ctx.arc(
+        powerUp.x * gridSize + gridSize / 2,
+        powerUp.y * gridSize + gridSize / 2,
+        gridSize / 2 - 2,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
+    // Draw particles
+    particles.forEach((p) => {
+      ctx.fillStyle = `rgba(${p.color}, ${p.life})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    // Draw score
+    ctx.fillStyle = "white";
+    ctx.font = "bold 18px Inter, sans-serif";
+    ctx.fillText(`Score: ${score}`, 20, 30);
+    if (highScore > 0) {
+      ctx.font = "14px Inter, sans-serif";
+      ctx.fillText(`High: ${highScore}`, 20, 50);
+    }
+  }
   function update() {
+    if (nextDirection) {
+      direction = nextDirection;
+      nextDirection = null;
+    }
     const head = { ...snake[0] };
-    if (direction === 'up') head.y--;
-    if (direction === 'down') head.y++;
-    if (direction === 'left') head.x--;
-    if (direction === 'right') head.x++;
-    
-    if (head.x < 0) head.x = (canvas.width / gridSize) - 1;
+    if (direction === "up") head.y--;
+    if (direction === "down") head.y++;
+    if (direction === "left") head.x--;
+    if (direction === "right") head.x++;
+    // Wrap around edges
+    if (head.x < 0) head.x = canvas.width / gridSize - 1;
     if (head.x * gridSize >= canvas.width) head.x = 0;
-    if (head.y < 0) head.y = (canvas.height / gridSize) - 1;
+    if (head.y < 0) head.y = canvas.height / gridSize - 1;
     if (head.y * gridSize >= canvas.height) head.y = 0;
-
     snake.unshift(head);
-
+    // Check food collision
     if (head.x === food.x && head.y === food.y) {
-      score++;
+      score += 10;
+      createParticles(food.x, food.y, "129, 140, 248");
       placeFood();
+      if (Math.random() > 0.7) placePowerUp();
+      updateScore();
+      // Speed up slightly
+      if (speed > 60) {
+        speed -= 2;
+        clearInterval(gameInterval);
+        gameInterval = setInterval(gameLoop, speed);
+      }
     } else {
       snake.pop();
     }
-
-    const selfCollision = snake.slice(1).some(segment => segment.x === head.x && segment.y === head.y);
-    
-    if (selfCollision) {
-      clearInterval(gameInterval);
-      ctx.fillStyle = 'white';
-      ctx.font = '24px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`Game Over! Score: ${score}`, canvas.width / 2, canvas.height / 2);
-      ctx.font = '16px Inter, sans-serif';
-      ctx.fillText('Press "Enter" to restart', canvas.width / 2, canvas.height / 2 + 30);
+    // Check power-up collision
+    if (powerUp && head.x === powerUp.x && head.y === powerUp.y) {
+      if (powerUp.type === "speed") {
+        createParticles(powerUp.x, powerUp.y, "251, 191, 36"); // yellow
+        const originalSpeed = speed;
+        speed = Math.max(50, speed - 40);
+        clearInterval(gameInterval);
+        gameInterval = setInterval(gameLoop, speed);
+        setTimeout(() => {
+          speed = originalSpeed;
+          clearInterval(gameInterval);
+          gameInterval = setInterval(gameLoop, speed);
+        }, 5000); // Speed boost lasts 5 seconds
+      } else {
+        // bonus
+        score += 50;
+        createParticles(powerUp.x, powerUp.y, "52, 211, 153"); // green
+        updateScore();
+      }
+      powerUp = null;
+    }
+    // Check self collision
+    for (let i = 1; i < snake.length; i++) {
+      if (head.x === snake[i].x && head.y === snake[i].y) {
+        endGame();
+        return;
+      }
     }
   }
-  
+  function endGame() {
+    clearInterval(gameInterval);
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem("snakeHighScore", highScore);
+    }
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "white";
+    ctx.font = "bold 40px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 20);
+    ctx.font = "20px Inter, sans-serif";
+    ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+    ctx.font = "14px Inter, sans-serif";
+    ctx.fillText("Restarting...", canvas.width / 2, canvas.height / 2 + 50);
+    ctx.textAlign = "left";
+    setTimeout(initGame, 2500);
+  }
   function gameLoop() {
     update();
+    updateParticles();
     draw();
   }
-
-  function handleDirectionChange(newDirection) {
-    if (newDirection === 'up' && direction !== 'down') direction = 'up';
-    if (newDirection === 'down' && direction !== 'up') direction = 'down';
-    if (newDirection === 'left' && direction !== 'right') direction = 'left';
-    if (newDirection === 'right' && direction !== 'left') direction = 'right';
+  function updateScore() {
+    if (scoreDisplay) scoreDisplay.textContent = score;
   }
-
-  function handleKeyDown(e) {
-    const key = e.key.toLowerCase();
-    const isGameOver = snake.slice(1).some(segment => segment.x === snake[0].x && segment.y === snake[0].y);
-
-    if (key === 'arrowup' || key === 'w') handleDirectionChange('up');
-    if (key === 'arrowdown' || key === 's') handleDirectionChange('down');
-    if (key === 'arrowleft' || key === 'a') handleDirectionChange('left');
-    if (key === 'arrowright' || key === 'd') handleDirectionChange('right');
-    if (key === 'enter' && isGameOver) {
-        initGame();
+  function handleDirectionChange(newDirection) {
+    if (newDirection === "up" && direction !== "down") nextDirection = "up";
+    else if (newDirection === "down" && direction !== "up") nextDirection = "down";
+    else if (newDirection === "left" && direction !== "right") nextDirection = "left";
+    else if (newDirection === "right" && direction !== "left") nextDirection = "right";
+  }
+  function keydownHandler(e) {
+    const keyMap = {
+      ArrowUp: "up",
+      w: "up",
+      W: "up",
+      ArrowDown: "down",
+      s: "down",
+      S: "down",
+      ArrowLeft: "left",
+      a: "left",
+      A: "left",
+      ArrowRight: "right",
+      d: "right",
+      D: "right",
+    };
+    const newDirection = keyMap[e.key];
+    if (newDirection) {
+      e.preventDefault(); // Prevent page scrolling
+      handleDirectionChange(newDirection);
     }
   }
-  
-  const konamiCode = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
-  let konamiIndex = 0;
-  
-  function checkKonamiCode(e) {
-    if (modal.classList.contains('hidden') && e.key.toLowerCase() === konamiCode[konamiIndex]) {
-      konamiIndex++;
-      if (konamiIndex === konamiCode.length) {
-        konamiIndex = 0;
-        openGame();
-      }
-    } else {
+  function openGame() {
+    if (!modal) return;
+    modal.style.display = "flex";
+    highScore = parseInt(localStorage.getItem("snakeHighScore") || "0", 10);
+    initGame();
+    document.addEventListener("keydown", keydownHandler);
+  }
+  function closeGame() {
+    if (!modal) return;
+    modal.style.display = "none";
+    if (gameInterval) clearInterval(gameInterval);
+    document.removeEventListener("keydown", keydownHandler);
+  }
+  gameHintBtn?.addEventListener("click", openGame);
+  closeBtn?.addEventListener("click", closeGame);
+  upBtn?.addEventListener("click", () => handleDirectionChange("up"));
+  downBtn?.addEventListener("click", () => handleDirectionChange("down"));
+  leftBtn?.addEventListener("click", () => handleDirectionChange("left"));
+  rightBtn?.addEventListener("click", () => handleDirectionChange("right"));
+})();
+// Konami Code sequence
+const konamiCode = [
+  "ArrowUp",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowLeft",
+  "ArrowRight",
+  "b",
+  "a",
+];
+let konamiIndex = 0;
+document.addEventListener("keydown", (e) => {
+  if (document.getElementById("gameModal")?.style.display === "flex") return;
+  if (e.key === konamiCode[konamiIndex]) {
+    konamiIndex++;
+    if (konamiIndex === konamiCode.length) {
+      document.getElementById("gameHintBtn")?.click();
       konamiIndex = 0;
     }
+  } else {
+    konamiIndex = 0;
   }
-  
-  function openGame() {
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    initGame();
-    window.addEventListener('keydown', handleKeyDown);
+});
+// Particle effect on click
+document.addEventListener("click", (e) => {
+  if (e.target.closest("a, button")) return;
+  for (let i = 0; i < 5; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    const size = Math.random() * 8 + 4;
+    p.style.width = `${size}px`;
+    p.style.height = `${size}px`;
+    p.style.background = `hsl(${Math.random() * 60 + 220}, 80%, 60%)`;
+    p.style.borderRadius = "50%";
+    p.style.left = `${e.clientX}px`;
+    p.style.top = `${e.clientY}px`;
+    p.style.setProperty("--tx", `${(Math.random() - 0.5) * 100}px`);
+    p.style.setProperty("--ty", `${(Math.random() - 0.5) * 100}px`);
+    p.style.zIndex = "9999";
+    document.body.appendChild(p);
+    p.addEventListener("animationend", () => p.remove());
   }
-  
-  function closeGame() {
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    clearInterval(gameInterval);
-    window.removeEventListener('keydown', handleKeyDown);
-  }
-
-  // Listen for keyboard and button clicks
-  window.addEventListener('keydown', checkKonamiCode);
-  closeBtn.addEventListener('click', closeGame);
-  gameHintBtn.addEventListener('click', openGame);
-  
-  // Add listeners for the new D-pad buttons
-  upBtn.addEventListener('click', () => handleDirectionChange('up'));
-  downBtn.addEventListener('click', () => handleDirectionChange('down'));
-  leftBtn.addEventListener('click', () => handleDirectionChange('left'));
-  rightBtn.addEventListener('click', () => handleDirectionChange('right'));
+});
+// Initial call for GitHub repos
+setGithubUsername("notSure-ded");
 })();
 
-})();
+
