@@ -79,7 +79,8 @@
         const isNewAttSite = n === 'newatt.github.io';
         const isHcp = n === 'hcp' || /^hcp[-_.]/i.test(r.name || '');
         const isBackendDeploy = n === 'backend_deploy';
-        return !isAttr && !isKpa && !isNewAttSite && !isHcp && !isBackendDeploy;
+        const Kunal_singh= n === 'kunal_singh' || /^Kunal[-_.]singh/.test(r.name || '');
+        return !isAttr && !isKpa && !isNewAttSite && !isHcp && !isBackendDeploy&& !Kunal_singh;
     }).sort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0)).slice(0, 9);
 
     if (curated.length === 0) {
@@ -120,6 +121,10 @@
   function pickCoverForRepo(repo) {
     const nameKey = (repo.name || '').toLowerCase();
     const text = `${repo.name} ${repo.description || ''}`.toLowerCase();
+     // E-commerce projects
+        if (nameKey.includes('ecomm_backend') || nameKey.includes('ecomm_frontend')) {
+          return './assets/covers/ecommerce.jpg';
+        }
     const specific = {'healthcare': './assets/covers/health.jpg','travel-dj': './assets/covers/travel.png','eventdb': './assets/covers/event.jpg','voice-chat-on-intent': './assets/covers/sound.jpg',};
     if (specific[nameKey]) return specific[nameKey];
     const mapping = [
